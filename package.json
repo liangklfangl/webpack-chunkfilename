@@ -1,0 +1,38 @@
+{
+  "name": "webpack-chunkfilename",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liangklfangl/webpack-chunkfilename.git"
+  },
+  "author": "langklfangl",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/liangklfangl/webpack-chunkfilename/issues"
+  },
+  "homepage": "https://github.com/liangklfangl/webpack-chunkfilename#readme",
+  "dependencies": {
+    "babel-loader": "^6.2.10",
+    "jquery": "^3.1.1",
+    "mustache": "^2.3.0"
+  },
+  "devDependencies": {
+    "babel-core": "^6.22.1",
+    "babel-eslint": "^7.1.1",
+    "babel-loader": "^6.2.10",
+    "babel-preset-es2015": "^6.22.0",
+    "css-loader": "^0.26.1",
+    "eslint": "^3.15.0",
+    "eslint-loader": "^1.6.1",
+    "html-loader": "^0.4.4",
+    "node-sass": "^4.5.0",
+    "sass-loader": "^5.0.1",
+    "style-loader": "^0.13.1",
+    "webpack": "^2.2.1"
+  }
+}
