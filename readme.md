@@ -1,676 +1,311 @@
-### 1.webpack打包时候添加参数
+####问题1:path.resolve和require.resolve的区别
 
-#### --display-modules
+path.resolve: 如果两者都是绝对路径，那么直接返回第二个绝对路径；否则后续参数相对于前面参数叠加，直到取出绝对路径为止
+
+```js
+path.resolve('/foo/bar', './baz')
+// Returns: '/foo/bar/baz'
+
+path.resolve('/foo/bar', '/tmp/file/')
+// Returns: '/tmp/file'
+
+path.resolve('wwwroot', 'static_files/png/', '../gif/image.gif')
+// if the current working directory is /home/myself/node,
+// this returns '/home/myself/node/wwwroot/static_files/gif/image.gif'
+```
+
+require.resolve: 可以使用require.resolve函数来查询某个模块文件的带有完整绝对路径的文件名，代码如下所示:
+  
+  ```js
+  require.resolve('./testModule.js');//得到带有完整路径+文件名形式
+  ```
+
+在这行代码中，我们使用require.resolve函数来查询当前目录下testModule.js模块文件的带有完整绝对路径的模块文件名。
+ 注意：使用require.resolve函数查询模块文件名时并不会加载该模块。同时require.resolve用于加载wcf中的plugin:
+
+```js
+require.resolve('postcss-loader')
+```
+
+如果只有一个参数的情况下，如下的path.resolve得到同样的结果，其都是相对于项目路径的:
+
+```js
+    const path = require("path");
+   console.log(path.resolve("./index.html"));
+   // 和
+   const path = require("path");
+   console.log(path.resolve("index.html"));
+```
+
+都输出:
+
+C:\Users\Administrator\Desktop\webpack-chunkfilename\index.html。其中webpack-chunkfilename是项目路径。`如果resolve一个node_modules中的模块，那么会一直到如index的文件的路径`
+
+下面是一个稍微复杂的点的例子(来源于html-webpack-plugin):
+
+```js
+ var publicPath = typeof compilation.options.output.publicPath !== 'undefined'
+    // If a hard coded public path exists use it
+    ? compilation.mainTemplate.getPublicPath({hash: webpackStatsJson.hash})
+    // If no public path was set get a relative url path
+    // 这个publicPath是可以使用hash的
+    : path.relative(path.resolve(compilation.options.output.path, path.dirname(self.childCompilationOutputName)), compilation.options.output.path)
+      .split(path.sep).join('/');
+```
+
+注意：require和require.resolve加载一个模块的时候和package.json也有关系:
  
- 这时候，我们在控制台中输出的 "+ 1 hidden modules"都会显示出来
-
-#### --watch
-
-监控文件的变化并自动编译。
-
-#### --display-chunks
-
-显示一个chunk中包含的模块。
-
-
-### 2.使用require.default来手动获取导出对象
-
-当我们使用require的时候，如果你想要获取默认导出的对象你可以使用.default来获取。理由是：require不会同时处理default导出和常规导出，所以你要自己指定返回值。
-
-### 3.code splitting
-
-#### 3.1 示例代码
-
-我们的webpack配置如下:
-
 ```js
-module.exports = {
-    entry:  './src',
-    output: {
-        path:     'builds',
-        filename: 'bundle.js',
-        publicPath: 'builds/'
-    },
-    module: {
-         loaders: [
-           {
-                test:    /\.js/,
-                loader:  'babel-loader',
-                include: __dirname + '/src',
-            },
-            {
-                test:   /\.scss/,
-                loader: 'style-loader!css-loader!sass-loader',
-                // Or
-               // loaders: ['style', 'css', 'sass'],
-               //这里必须是loader后缀
-            },
-            {
-                test:   /\.html/,
-                loader: 'html-loader',
-            }
-        ],
-    }
-};
+var phantomSource = require('phantomjs-prebuilt').path
+ require.resolve('phantomjs-prebuilt');
 ```
 
-通过output.publicPath指定html加载资源的路径。此时为了达到按需加载，我们在页面中做了一个判断，如果页面中有a标签那么我们才会加载：
+当我们的phantomjs-prebuilt中没有index文件的时候就会查找package.json中的main字段:
 
 ```js
-if (document.querySelectorAll('a').length) {
-    require.ensure([], () => {
-        const Button = require('./Components/Button').default;
-        const button = new Button('google.com');
-        button.render('a');
-    });
-}
+  "main": "lib/phantomjs",
 ```
 
-此时我们的builds目录会产生两个文件，其中0.bundle.js只有在具有a标签的时候才会加载，也就是表示按需加载的资源。
-
-![](./bundle.png)
-
-#### 3.2 chunkFilename为按需加载的文件命名
-
-可以为我们的webpack配置添加chunkFilename取代上面的0.bundle.js，修改如下，重新编译你会发现生成了文件是bundle.js和chunkfile.js。
+最后得到的路径就是如下的:
 
 ```js
-   output: {
-        path:     'builds',
-        filename: 'bundle.js',
-        publicPath: 'builds/',
-        chunkFilename:'chunkfile.js'
-    }
+ C:\Users\Administrator\Desktop\yo-react\node_modules\phantomjs-prebuilt\lib\phantomjs.js
+```
+
+但是path.resolve得到的结果和package.json无关：
+
+```js
+ C:\Users\Administrator\Desktop\yo-react\phantomjs-prebuilt
 ```
 
 
-#### 3.3 一个稍微复杂点的例子
+####问题2:如何判断用户传入的是绝对路径
 
-修改index.js如下:
-
-```js
-if (document.querySelectorAll('a').length) {
-    require.ensure([], () => {
-        const Button = require('./Components/Button').default;
-        const button = new Button('google.com');
-
-        button.render('a');
-    });
-}
-if (document.querySelectorAll('h1').length) {
-    require.ensure([], () => {
-        const Header = require('./Components/Header');
-
-        new Header().render('h1');
-    });
-}
-```
-
-执行如下命令 webpack --display-chunks --display-modules，然后查看结果：
-
-![](./fi.png)
-
-通过上图你可以清楚的看到那些chunk，以及chunk包含的模块。
-
-首先：我们的bundle.js只是包含一些webpack的逻辑代码，也就是仅仅包含如下代码的打包结果：
+  这个if只有在用户配置了绝对路径才有用。也就是说如果用户配置了filename为绝对路径那么将filename设置为相对于输出路径的相对路径。
 
 ```js
-if (document.querySelectorAll('a').length) {
-    require.ensure([], () => {
-        const Button = require('./Components/Button').default;
-        const button = new Button('google.com');
-
-        button.render('a');
-    });
-}
-
-if (document.querySelectorAll('h1').length) {
-    require.ensure([], () => {
-        const Header = require('./Components/Header');
-
-        new Header().render('h1');
-    });
-}
-```
-
-在builds/bundle.js的打包结果如下:
-
-```js
-/******/ (function(modules) { // webpackBootstrap
-/******/    // install a JSONP callback for chunk loading
-/******/    var parentJsonpFunction = window["webpackJsonp"];
-/******/    window["webpackJsonp"] = function webpackJsonpCallback(chunkIds, moreModules, executeModules) {
-/******/        // add "moreModules" to the modules object,
-/******/        // then flag all "chunkIds" as loaded and fire callback
-/******/        var moduleId, chunkId, i = 0, resolves = [], result;
-/******/        for(;i < chunkIds.length; i++) {
-/******/            chunkId = chunkIds[i];
-/******/            if(installedChunks[chunkId])
-/******/                resolves.push(installedChunks[chunkId][0]);
-/******/            installedChunks[chunkId] = 0;
-/******/        }
-/******/        for(moduleId in moreModules) {
-/******/            if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
-/******/                modules[moduleId] = moreModules[moduleId];
-/******/            }
-/******/        }
-/******/        if(parentJsonpFunction) parentJsonpFunction(chunkIds, moreModules, executeModules);
-/******/        while(resolves.length)
-/******/            resolves.shift()();
-
-/******/    };
-
-/******/    // The module cache
-/******/    var installedModules = {};
-
-/******/    // objects to store loaded and loading chunks
-/******/    var installedChunks = {
-/******/        2: 0
-/******/    };
-
-/******/    // The require function
-/******/    function __webpack_require__(moduleId) {
-
-/******/        // Check if module is in cache
-/******/        if(installedModules[moduleId])
-/******/            return installedModules[moduleId].exports;
-
-/******/        // Create a new module (and put it into the cache)
-/******/        var module = installedModules[moduleId] = {
-/******/            i: moduleId,
-/******/            l: false,
-/******/            exports: {}
-/******/        };
-
-/******/        // Execute the module function
-/******/        modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-
-/******/        // Flag the module as loaded
-/******/        module.l = true;
-
-/******/        // Return the exports of the module
-/******/        return module.exports;
-/******/    }
-
-/******/    // This file contains only the entry chunk.
-/******/    // The chunk loading function for additional chunks
-/******/    __webpack_require__.e = function requireEnsure(chunkId) {
-/******/        if(installedChunks[chunkId] === 0)
-/******/            return Promise.resolve();
-
-/******/        // an Promise means "currently loading".
-/******/        if(installedChunks[chunkId]) {
-/******/            return installedChunks[chunkId][2];
-/******/        }
-/******/        // start chunk loading
-/******/        var head = document.getElementsByTagName('head')[0];
-/******/        var script = document.createElement('script');
-/******/        script.type = 'text/javascript';
-/******/        script.charset = 'utf-8';
-/******/        script.async = true;
-/******/        script.timeout = 120000;
-
-/******/        if (__webpack_require__.nc) {
-/******/            script.setAttribute("nonce", __webpack_require__.nc);
-/******/        }
-/******/        script.src = __webpack_require__.p + "" + chunkId + ".bundle.js";
-/******/        var timeout = setTimeout(onScriptComplete, 120000);
-/******/        script.onerror = script.onload = onScriptComplete;
-/******/        function onScriptComplete() {
-/******/            // avoid mem leaks in IE.
-/******/            script.onerror = script.onload = null;
-/******/            clearTimeout(timeout);
-/******/            var chunk = installedChunks[chunkId];
-/******/            if(chunk !== 0) {
-/******/                if(chunk) chunk[1](new Error('Loading chunk ' + chunkId + ' failed.'));
-/******/                installedChunks[chunkId] = undefined;
-/******/            }
-/******/        };
-
-/******/        var promise = new Promise(function(resolve, reject) {
-/******/            installedChunks[chunkId] = [resolve, reject];
-/******/        });
-/******/        installedChunks[chunkId][2] = promise;
-
-/******/        head.appendChild(script);
-/******/        return promise;
-/******/    };
-
-/******/    // expose the modules object (__webpack_modules__)
-/******/    __webpack_require__.m = modules;
-
-/******/    // expose the module cache
-/******/    __webpack_require__.c = installedModules;
-
-/******/    // identity function for calling harmony imports with the correct context
-/******/    __webpack_require__.i = function(value) { return value; };
-
-/******/    // define getter function for harmony exports
-/******/    __webpack_require__.d = function(exports, name, getter) {
-/******/        if(!__webpack_require__.o(exports, name)) {
-/******/            Object.defineProperty(exports, name, {
-/******/                configurable: false,
-/******/                enumerable: true,
-/******/                get: getter
-/******/            });
-/******/        }
-/******/    };
-
-/******/    // getDefaultExport function for compatibility with non-harmony modules
-/******/    __webpack_require__.n = function(module) {
-/******/        var getter = module && module.__esModule ?
-/******/            function getDefault() { return module['default']; } :
-/******/            function getModuleExports() { return module; };
-/******/        __webpack_require__.d(getter, 'a', getter);
-/******/        return getter;
-/******/    };
-
-/******/    // Object.prototype.hasOwnProperty.call
-/******/    __webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
-
-/******/    // __webpack_public_path__
-/******/    __webpack_require__.p = "builds/";
-
-/******/    // on error function for async loading
-/******/    __webpack_require__.oe = function(err) { console.error(err); throw err; };
-
-/******/    // Load entry module and return exports
-/******/    return __webpack_require__(__webpack_require__.s = 2);
-/******/ })
-/************************************************************************/
-/******/ ({
-
-/***/ 2:
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-//code splitting
-if (document.querySelectorAll('a').length) {
-    __webpack_require__.e/* require.ensure */(1).then((function () {
-        var Button = __webpack_require__(0).default;
-        var button = new Button('google.com');
-
-        button.render('a');
-    }).bind(null, __webpack_require__)).catch(__webpack_require__.oe);
-}
-
-if (document.querySelectorAll('h1').length) {
-    __webpack_require__.e/* require.ensure */(0).then((function () {
-        var Header = __webpack_require__(1);
-
-        new Header().render('h1');
-    }).bind(null, __webpack_require__)).catch(__webpack_require__.oe);
-}
-
-/***/ })
-/******/ });
-```
-
-第二:通过添加--display-chunks --display-modules参数你可以明确的看出其他两个chunk都重复的包含了jQuery和Mustache模块，这部分内容就是我们要通过commonChunkPlugin来完成！
-
-（1）code splitting的时候指定name:'main'
-
-```js
-var webpack = require('webpack');
-module.exports = {
-    entry:   './src',
-    output:  {
-      // ...
-    },
-    plugins: [
-        new webpack.optimize.CommonsChunkPlugin({
-            name:      'main', 
-            // Move dependencies to our main file
-            //也就是我们的src/index.js，所以这里指定main会把公有的内容移到这个文件中
-            children:  true, // Look for common dependencies in all children,
-            minChunks: 2, // How many times a dependency must come up before being extracted
-        }),
-    ],
-    module:  {
-      // ...
-    }
-};
-```
-
-上面我们配置的是:
-
-```js
-new webpack.optimize.CommonsChunkPlugin({
-            name:      'main', 
-            // Move dependencies to our main file
-            //也就是我们的src/index.js，所以这里指定main会把公有的内容移到这个文件中
-            children:  true, // Look for common dependencies in all children,
-            minChunks: 2, // How many times a dependency must come up before being extracted
-        }),
-```
-
-其中name指定了‘main’，所以我们会把公有的模块内容打包到bundle.js中(bundle.js是我们配置在webpack中的output.filename，所以'main'就是指定的是我们的打包文件bundle.js，而不是require.ensure指定的文件)：
-
-<pre>
-chunk    {0} 0.bundle.js 2.94 kB {2} [rendered]
-    [1] ./src/Components/Header.js 1.62 kB {0} [built]
-    [8] ./~/css-loader!./~/sass-loader/lib/loader.js!./src/Components/Header.scss 192 bytes {0} [built]
-   [10] ./src/Components/Header.html 62 bytes {0} [built]
-   [12] ./src/Components/Header.scss 1.07 kB {0} [built]
-chunk    {1} 1.bundle.js 3.32 kB {2} [rendered]
-    [0] ./src/Components/Button.js 1.97 kB {1} [built]
-    [7] ./~/css-loader!./~/sass-loader/lib/loader.js!./src/Components/Button.scss 212 bytes {1} [built]
-    [9] ./src/Components/Button.html 70 bytes {1} [built]
-   [11] ./src/Components/Button.scss 1.07 kB {1} [built]
-chunk    {2} bundle.js (main) 296 kB [entry] [rendered]
-    [2] ./src/index.js 683 bytes {2} [built]
-    [3] ./~/css-loader/lib/css-base.js 1.51 kB {2} [built]
-    [4] ./~/jquery/dist/jquery.js 267 kB {2} [built]
-    [5] ./~/mustache/mustache.js 19.4 kB {2} [built]
-    [6] ./~/style-loader/addStyles.js 7.15 kB {2} [built]
-</pre>
-
-如果此时使用了我们的CommonChunkPlugin，那么我们会发现在builds/bundle.js除了包含webpack的逻辑以外(两个if判断)还会包含两个bundle，即0.bundle.js和1.bundle.js公有的代码部分(jquery,mustache等)。
-
-（2）code splitting的时候指定name:'vendor'
-
-[Webpack your bags](https://blog.madewithlove.be/post/webpack-your-bags/#adding-a-second-component)指出这种方式和aync是一样的，但是在本次测试中没有得到同样的输出。其最终还是把公有的代码打包到0.bundle.js中！
-<pre>
-    chunk    {0} 0.bundle.js 298 kB {2} [rendered]
-    [1] ./src/Components/Header.js 1.62 kB {0} [built]
-    [3] ./~/css-loader/lib/css-base.js 1.51 kB {0} {1} [built]
-    [4] ./~/jquery/dist/jquery.js 267 kB {0} {1} [built]
-    [5] ./~/mustache/mustache.js 19.4 kB {0} {1} [built]
-    [6] ./~/style-loader/addStyles.js 7.15 kB {0} {1} [built]
-    [8] ./~/css-loader!./~/sass-loader/lib/loader.js!./src/Components/Header.scss 192 bytes {0} [built]
-   [10] ./src/Components/Header.html 62 bytes {0} [built]
-   [12] ./src/Components/Header.scss 1.07 kB {0} [built]
-chunk    {1} 1.bundle.js 299 kB {2} [rendered]
-    [0] ./src/Components/Button.js 1.97 kB {1} [built]
-    [3] ./~/css-loader/lib/css-base.js 1.51 kB {0} {1} [built]
-    [4] ./~/jquery/dist/jquery.js 267 kB {0} {1} [built]
-    [5] ./~/mustache/mustache.js 19.4 kB {0} {1} [built]
-    [6] ./~/style-loader/addStyles.js 7.15 kB {0} {1} [built]
-    [7] ./~/css-loader!./~/sass-loader/lib/loader.js!./src/Components/Button.scss 212 bytes {1} [built]
-    [9] ./src/Components/Button.html 70 bytes {1} [built]
-   [11] ./src/Components/Button.scss 1.07 kB {1} [built]
-chunk    {2} bundle.js (main) 684 bytes [entry] [rendered]
-    [2] ./src/index.js 684 bytes {2} [built]
-</pre>
-
-在output.path路径下没有产生我们的vendor.js文件，此时在html中加载也会存在问题.
-
-```html
-   <script src="builds/vendor.js"></script>
-    <script src="builds/bundle.js"></script>
-```
-
-此时，如果你把children配置为false，你会发现确实会抽取到独立的文件中去:
-
-```js
-new webpack.optimize.CommonsChunkPlugin({
-                filename:'vendor.bundle.js',
-                name:      'vendor', // Move dependencies to our main file
-                children : false
-                minChunks: 2, // How many times a dependency must come up before being extracted
-            }),
-```
-
-原因可能是我们这里用的是webpack2。
-
-（3）code splitting的时候没有指定name，而是通过aync:true
-
-此时你会发现，我们的公有的代码会打包到0.bundle.js中作为一个单独的文件而加载，从而也能达到按需加载。
-
-![](./4.png)
-
-此时我们的bundle.js内容如下:
-
-```js
-/******/ (function(modules) { // webpackBootstrap
-/******/    // install a JSONP callback for chunk loading
-/******/    var parentJsonpFunction = window["webpackJsonp"];
-/******/    window["webpackJsonp"] = function webpackJsonpCallback(chunkIds, moreModules, executeModules) {
-/******/        // add "moreModules" to the modules object,
-/******/        // then flag all "chunkIds" as loaded and fire callback
-/******/        var moduleId, chunkId, i = 0, resolves = [], result;
-/******/        for(;i < chunkIds.length; i++) {
-/******/            chunkId = chunkIds[i];
-/******/            if(installedChunks[chunkId])
-/******/                resolves.push(installedChunks[chunkId][0]);
-/******/            installedChunks[chunkId] = 0;
-/******/        }
-/******/        for(moduleId in moreModules) {
-/******/            if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
-/******/                modules[moduleId] = moreModules[moduleId];
-/******/            }
-/******/        }
-/******/        if(parentJsonpFunction) parentJsonpFunction(chunkIds, moreModules, executeModules);
-/******/        while(resolves.length)
-/******/            resolves.shift()();
-
-/******/    };
-
-/******/    // The module cache
-/******/    var installedModules = {};
-
-/******/    // objects to store loaded and loading chunks
-/******/    var installedChunks = {
-/******/        3: 0
-/******/    };
-
-/******/    // The require function
-/******/    function __webpack_require__(moduleId) {
-
-/******/        // Check if module is in cache
-/******/        if(installedModules[moduleId])
-/******/            return installedModules[moduleId].exports;
-
-/******/        // Create a new module (and put it into the cache)
-/******/        var module = installedModules[moduleId] = {
-/******/            i: moduleId,
-/******/            l: false,
-/******/            exports: {}
-/******/        };
-
-/******/        // Execute the module function
-/******/        modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-
-/******/        // Flag the module as loaded
-/******/        module.l = true;
-
-/******/        // Return the exports of the module
-/******/        return module.exports;
-/******/    }
-
-/******/    // This file contains only the entry chunk.
-/******/    // The chunk loading function for additional chunks
-/******/    __webpack_require__.e = function requireEnsure(chunkId) {
-/******/        if(installedChunks[chunkId] === 0)
-/******/            return Promise.resolve();
-
-/******/        // an Promise means "currently loading".
-/******/        if(installedChunks[chunkId]) {
-/******/            return installedChunks[chunkId][2];
-/******/        }
-/******/        // start chunk loading
-/******/        var head = document.getElementsByTagName('head')[0];
-/******/        var script = document.createElement('script');
-/******/        script.type = 'text/javascript';
-/******/        script.charset = 'utf-8';
-/******/        script.async = true;
-/******/        script.timeout = 120000;
-
-/******/        if (__webpack_require__.nc) {
-/******/            script.setAttribute("nonce", __webpack_require__.nc);
-/******/        }
-/******/        script.src = __webpack_require__.p + "" + chunkId + ".bundle.js";
-/******/        var timeout = setTimeout(onScriptComplete, 120000);
-/******/        script.onerror = script.onload = onScriptComplete;
-/******/        function onScriptComplete() {
-/******/            // avoid mem leaks in IE.
-/******/            script.onerror = script.onload = null;
-/******/            clearTimeout(timeout);
-/******/            var chunk = installedChunks[chunkId];
-/******/            if(chunk !== 0) {
-/******/                if(chunk) chunk[1](new Error('Loading chunk ' + chunkId + ' failed.'));
-/******/                installedChunks[chunkId] = undefined;
-/******/            }
-/******/        };
-
-/******/        var promise = new Promise(function(resolve, reject) {
-/******/            installedChunks[chunkId] = [resolve, reject];
-/******/        });
-/******/        installedChunks[chunkId][2] = promise;
-
-/******/        head.appendChild(script);
-/******/        return promise;
-/******/    };
-
-/******/    // expose the modules object (__webpack_modules__)
-/******/    __webpack_require__.m = modules;
-
-/******/    // expose the module cache
-/******/    __webpack_require__.c = installedModules;
-
-/******/    // identity function for calling harmony imports with the correct context
-/******/    __webpack_require__.i = function(value) { return value; };
-
-/******/    // define getter function for harmony exports
-/******/    __webpack_require__.d = function(exports, name, getter) {
-/******/        if(!__webpack_require__.o(exports, name)) {
-/******/            Object.defineProperty(exports, name, {
-/******/                configurable: false,
-/******/                enumerable: true,
-/******/                get: getter
-/******/            });
-/******/        }
-/******/    };
-
-/******/    // getDefaultExport function for compatibility with non-harmony modules
-/******/    __webpack_require__.n = function(module) {
-/******/        var getter = module && module.__esModule ?
-/******/            function getDefault() { return module['default']; } :
-/******/            function getModuleExports() { return module; };
-/******/        __webpack_require__.d(getter, 'a', getter);
-/******/        return getter;
-/******/    };
-
-/******/    // Object.prototype.hasOwnProperty.call
-/******/    __webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
-
-/******/    // __webpack_public_path__
-/******/    __webpack_require__.p = "builds/";
-
-/******/    // on error function for async loading
-/******/    __webpack_require__.oe = function(err) { console.error(err); throw err; };
-
-/******/    // Load entry module and return exports
-/******/    return __webpack_require__(__webpack_require__.s = 2);
-/******/ })
-/************************************************************************/
-/******/ ({
-
-/***/ 2:
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-//0表示公有代码(CommonChunkPlugin完成),2表示模块特定代码，加载完成后可以具体的业务逻辑处理
-if (document.querySelectorAll('a').length) {
-    Promise.all/* require.ensure */([__webpack_require__.e(2), __webpack_require__.e(0)]).then((function () {
-        var Button = __webpack_require__(0).default;
-        var button = new Button('google.com');
-        button.render('a');
-    }).bind(null, __webpack_require__)).catch(__webpack_require__.oe);
-}
-
-if (document.querySelectorAll('h1').length) {
-    Promise.all/* require.ensure */([__webpack_require__.e(1), __webpack_require__.e(0)]).then((function () {
-        var Header = __webpack_require__(1).default;
-        new Header().render('h1');
-    }).bind(null, __webpack_require__)).catch(__webpack_require__.oe);
-}
-
-/***/ })
-
-/******/ });
-```
-
-其中代码编译后得到的是Promise.all，其中0.bundle.js表示公有的代码。不管满足require.ensure(两个if)哪一个条件，我们都会先加载公有代码，也就是先加载0.bundle.js，并同时加载特有代码，最后才能开始具体的逻辑处理！因为指定的async:true，所以表示是当满足条件的时候异步加载的，而异步加载都是webpack编译好，通过html中js执行的逻辑来具体的加载模块。
-
-
-### 4.eslint
-
-通过修改webpack.config.js为如下:
-
-```js
-module: {
-         loaders: [
-         {
-             test: /\.js$/,
-             enforce: "pre",//preloader
-             loader: "eslint-loader"
-          },
-           {
-                test:    /\.js/,
-                loader:  'babel-loader',
-                include: __dirname + '/src',
-            },
-            {
-                test:   /\.scss/,
-                loader: 'style-loader!css-loader!sass-loader',
-                // Or
-               // loaders: ['style', 'css', 'sass'],
-               //这里必须是loader后缀
-            },
-            {
-                test:   /\.html/,
-                loader: 'html-loader',
-            }
-        ],
-    }
-```
-
-其中第一个loader就是preloader,具体用法可以参见[官网](https://webpack.js.org/guides/migrating/#module-preloaders-and-module-postloaders-was-removed)。同时在项目根目录下创建了.eslintrc文件，其中内容为:
-
-```js
-{
-  "parser": "babel-eslint",
-  "rules": {
-    "quotes": 1
+  if (path.resolve(filename) === path.normalize(filename)) {
+    this.options.filename = path.relative(compiler.options.output.path, filename);//relative表示第二个参数相对于第一个参数取相对路径
   }
+```
+
+normalize表示路径中的".或者.."都会被解析了,对于normalize方法下面也是返回相同:
+  
+```js
+   const path = require("path");
+    console.log(path.normalize("./index.html"));
+    //和
+     const path = require("path");
+    console.log(path.normalize("index.html"));
+```
+
+都是返回index.html,它只是将路径中的符号解析掉，而这里没有路径。
+
+下面是一个问题1和问题2的两个综合例子:
+
+例子1：
+
+```js
+   const path = require("path");
+   console.log(path.resolve("./bin/index.html"));
+   console.log(path.normalize("./bin/index.html"));
+```
+
+输出结果为：
+
+ C:\Users\Administrator\Desktop\webpack-chunkfilename\bin\index.html
+  bin\index.html
+
+例子2：HtmlWebpackPlugin的例子
+
+```js
+HtmlWebpackPlugin.prototype.getFullTemplatePath = function (template, context) {
+  // If the template doesn't use a loader use the lodash template loader
+  if (template.indexOf('!') === -1) {
+    template = require.resolve('./lib/loader.js') + '!' + path.resolve(context, template);
+    //对于我们的这个ejs文件，我们使用特定的loader加载
+  }
+  // Resolve template path
+  return template.replace(
+    /([!])([^/\\][^!?]+|[^/\\!?])($|\?[^!?\n]+$)/,
+    function (match, prefix, filepath, postfix) {
+      return prefix + path.resolve(filepath) + postfix;
+    });
+};
+```
+
+这个例子中的template是我们配置的模板html的位置，这个位置是相对于项目根目录的,如果用户本身配置的就是绝对路径那么直接使用用户配置的绝对路径，否则路径是相对于项目根目录的。
+
+####问题3:Path.dirname的特殊形式
+
+```js
+const path = require("path");
+console.log(path.dirname("index.html"));//结果是"."，和"./index.html"一致
+```
+
+下面是path.basename的特殊情况:
+
+```js
+ const path = require('path');
+ console.log(path.basename("C:\\Users\\Administrator\\Desktop\\generator-kissy-gallery"));//结果为generator-kissy-gallery
+```
+
+
+####问题4:遍历得到一个文件夹下所有的文件
+
+```js
+function findMDFile(source){
+  //R.chain will combine our arrays in array
+ return R.pipe(
+    R.filter(R.either(isDirectory, isMDFile)),
+    R.chain((filename) => {
+      if (isDirectory(filename)) {
+        const subFiles = fs.readdirSync(filename)
+                .map((subFile) => path.join(filename, subFile));
+        return findMDFile(subFiles);
+      }
+      return [filename];
+    })
+  )(source);
 }
 ```
 
-其中quotes可以是0，1，2，分别表示如下:
-
-<pre>
- "off" 或 0 - 关闭规则
-"warn" 或 1 - 开启规则，使用警告级别的错误：warn (不会导致程序退出)
-"error" 或 2 - 开启规则，使用错误级别的错误：error (当被触发的时候，程序会退出)
-</pre>
-
-### 5.stats.json
-
-当我们的应用越来越大的时候我们需要知道具体的依赖树，从而知道我们那里可以优化，项目的瓶颈等。在webpack的内部它是知道这些信息的，但是我们必须运行相应的命令：
+####问题5：如何判断一个路径是绝对路径或者相对路径
+方法二：
 
 ```js
-webpack --profile --json > stats.json
+"use strict";
+const path = require("path");
+const matchRelativePath = /^\.\.?[/\\]/;
+function isAbsolutePath(str) {
+  return path.posix.isAbsolute(str) || path.win32.isAbsolute(str);
+}
+function isRelativePath(str) {
+  return matchRelativePath.test(str);
+}
+//调用loaderUtils.stringifyRequest(this, "!!" + remainingRequest)
+function stringifyRequest(loaderContext, request) {
+  const splitted = request.split("!");
+   console.log("loaderContext",loaderContext);
+  /*
+ [ '',
+  '',
+  'C:\\Users\\Administrator\\Desktop\\style-loader-source\\node_modules\\css-loa
+der\\index.js',
+  'C:\\Users\\Administrator\\Desktop\\style-loader-source\\index.css' ]
+   */
+  const context = loaderContext.context || (loaderContext.options && loaderContext.options.context);
+  return JSON.stringify(splitted.map(part => {
+    // First, separate singlePath from query, because the query might contain paths again
+    const splittedPart = part.match(/^(.*?)(\?.*)/);
+    let singlePath = splittedPart ? splittedPart[1] : part;
+    const query = splittedPart ? splittedPart[2] : "";
+    if(isAbsolutePath(singlePath) && context) {
+      singlePath = path.relative(context, singlePath);
+      if(isAbsolutePath(singlePath)) {
+        // If singlePath still matches an absolute path, singlePath was on a different drive than context.
+        // In this case, we leave the path platform-specific without replacing any separators.
+        // @see https://github.com/webpack/loader-utils/pull/14
+        return singlePath + query;
+      }
+      if(isRelativePath(singlePath) === false) {
+        // Ensure that the relative path starts at least with ./ otherwise it would be a request into the modules directory (like node_modules).
+        singlePath = "./" + singlePath;
+      }
+    }
+    return singlePath.replace(/\\/g, "/") + query;
+  }).join("!"));
+}
+
+module.exports = stringifyRequest;
 ```
 
-第一个参数让webpack产生信息文件，第二个参数表示让这个信息文件为json格式。于是我们可以借助于[Webpack Analyze](http://webpack.github.io/analyse/)来分析这个json文件，如果一个点越红那么其越可能产生问题(在最后打包成的文件中)。从这个页面你很容易知道我们的文件树以及最后打包成为的文件。如下图：
+或者[查看这个库](https://github.com/liangklfang/path-is-absolute)
 
-![](./ch.png)
+#### 6.如何使用本地node_modules中版本替换全局命令
 
-最左边的一列表示每一个Module的id，而chunks列可以知道在当前chunks包含了那些module,size表示每一个模块的大小!
-
-当然[Webpack Visualizer](http://chrisbateman.github.io/webpack-visualizer/)可以让你知道在最后的打包文件bundle中每一个组成部分的占据的大小！
-
-
-
-参考资料：
-
-[Webpack your bags](https://blog.madewithlove.be/post/webpack-your-bags/#adding-a-second-component)
-
-[Eslint的配置说明](https://relign.github.io/%E5%89%8D%E7%AB%AF%E5%B7%A5%E5%85%B7/eslint-01/)
+```js
+//其中这段代码在webpack-dev-server/bin下并进行了全局安装
+try {
+  const localWebpackDevServer = require.resolve(path.join(process.cwd(), "node_modules", "webpack-dev-server", "bin", "webpack-dev-server.js"));
+  if(__filename !== localWebpackDevServer) {
+    return require(localWebpackDevServer);
+  }
+} catch(e) {}
+```
 
 
+#### 7.如何将日志分级输出
+
+```js
+function colorInfo(useColor, msg) {
+  if(useColor)
+    // Make text blue and bold, so it *pops*
+    return `\u001b[1m\u001b[34m${msg}\u001b[39m\u001b[22m`;
+  return msg;
+}
+
+function colorError(useColor, msg) {
+  if(useColor)
+    // Make text red and bold, so it *pops*
+    return `\u001b[1m\u001b[31m${msg}\u001b[39m\u001b[22m`;
+  return msg;
+}
+```
 
 
+#### 8.如何对一个复杂的对象进行字符串化
+
+```js
+function stringify(node, depth = 0) {
+  const indent = '  '.repeat(depth);
+  if (Array.isArray(node)) {
+    return `[\n` +
+      node.map(item => `${indent}  ${stringify(item, depth + 1)}`).join(',\n') +
+      `\n${indent}]`;
+  }
+  if (
+    typeof node === 'object' &&
+      node !== null &&
+      !(node instanceof Date)
+  ) {
+    // if (node.__BISHENG_EMBEDED_CODE) {
+    //   return node.code;
+    // }
+    return `{\n` +
+      Object.keys(node).map((key) => {
+        const value = node[key];
+        return `${indent}  "${key}": ${stringify(value, depth + 1)}`;
+      }).join(',\n') +
+      `\n${indent}}`;
+  }
+  return JSON.stringify(node, null, 2);
+}
+
+```
 
 
+#### 9.为某一个特定的文件添加一个loader
+
+```js
+ webpackConfig.module.rules.push({
+    test(filename) {
+      return filename === path.join(__dirname,"..", 'utils', 'data.js') ||
+        filename === path.join(__dirname,"..", 'utils', 'ssr-data.js');
+    },
+    loader: `${path.join(__dirname,"..", "loaders",'bisheng-data-loader')}` +
+      `?config=${configFile}`,
+  });
+```
+
+
+####10.如何导出一个loader
+
+```js
+  return 'var Promise = require(\'bluebird\');\n' +
+    'module.exports = {' +
+    `\n  markdown: ${markdownData.stringify(markdown, config.lazyLoad, isSSR)},` +
+    `\n  plugins: [\n${pluginsString}\n],` +
+    `\n  picked: ${JSON.stringify(picked, null, 2)},` +
+    `\n};`;
+```

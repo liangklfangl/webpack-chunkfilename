@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+
+const path = require("path");
+console.log(path.dirname("index.html"));
+// const toposort = require('toposort');
+// const edges= [[2,0],[2,1],[3,2]];
+// const vertice =[0,1,2,3];
+// console.log(toposort.array(vertice, edges));

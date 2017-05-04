@@ -8,8 +8,9 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-const createTokenStore = require("../token-store.js"),
-    Traverser = require("./traverser");
+const TokenStore = require("../token-store"),
+    Traverser = require("./traverser"),
+    astUtils = require("../ast-utils");
 
 //------------------------------------------------------------------------------
 // Private
@@ -77,6 +78,28 @@ function looksLikeExport(astNode) {
         astNode.type === "ExportAllDeclaration" || astNode.type === "ExportSpecifier";
 }
 
+/**
+ * Merges two sorted lists into a larger sorted list in O(n) time
+ * @param {Token[]} tokens The list of tokens
+ * @param {Token[]} comments The list of comments
+ * @returns {Token[]} A sorted list of tokens and comments
+ */
+function sortedMerge(tokens, comments) {
+    const result = [];
+    let tokenIndex = 0;
+    let commentIndex = 0;
+
+    while (tokenIndex < tokens.length || commentIndex < comments.length) {
+        if (commentIndex >= comments.length || tokenIndex < tokens.length && tokens[tokenIndex].range[0] < comments[commentIndex].range[0]) {
+            result.push(tokens[tokenIndex++]);
+        } else {
+            result.push(comments[commentIndex++]);
+        }
+    }
+
+    return result;
+}
+
 
 //------------------------------------------------------------------------------
 // Public Interface
@@ -117,21 +140,14 @@ function SourceCode(text, ast) {
      */
     this.lines = SourceCode.splitLines(this.text);
 
-    this.tokensAndComments = ast.tokens
-        .concat(ast.comments)
-        .sort((left, right) => left.range[0] - right.range[0]);
+    this.tokensAndComments = sortedMerge(ast.tokens, ast.comments);
 
     // create token store methods
-    const tokenStore = createTokenStore(ast.tokens);
+    const tokenStore = new TokenStore(ast.tokens, ast.comments);
 
-    Object.keys(tokenStore).forEach(methodName => {
-        this[methodName] = tokenStore[methodName];
-    });
-
-    const tokensAndCommentsStore = createTokenStore(this.tokensAndComments);
-
-    this.getTokenOrCommentBefore = tokensAndCommentsStore.getTokenBefore;
-    this.getTokenOrCommentAfter = tokensAndCommentsStore.getTokenAfter;
+    for (const methodName of TokenStore.PUBLIC_METHODS) {
+        this[methodName] = tokenStore[methodName].bind(tokenStore);
+    }
 
     // don't allow modification of this object
     Object.freeze(this);
@@ -145,7 +161,7 @@ function SourceCode(text, ast) {
  * @public
  */
 SourceCode.splitLines = function(text) {
-    return text.split(/\r\n|\r|\n|\u2028|\u2029/g);
+    return text.split(astUtils.createGlobalLinebreakMatcher());
 };
 
 SourceCode.prototype = {

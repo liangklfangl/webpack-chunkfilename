@@ -1,53 +1,34 @@
 webpackJsonp([0,3],[
 /* 0 */,
 /* 1 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_jquery__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_jquery___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_jquery__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_mustache__ = __webpack_require__(5);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_mustache___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_mustache__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Header_html__ = __webpack_require__(10);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Header_html___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2__Header_html__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__Header_scss__ = __webpack_require__(12);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__Header_scss___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3__Header_scss__);
 
 
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _jquery = __webpack_require__(4);
 
-var _jquery2 = _interopRequireDefault(_jquery);
+class Header {
+    render(node) {
+        const text = __WEBPACK_IMPORTED_MODULE_0_jquery___default()(node).text();
 
-var _mustache = __webpack_require__(5);
-
-var _mustache2 = _interopRequireDefault(_mustache);
-
-var _Header = __webpack_require__(10);
-
-var _Header2 = _interopRequireDefault(_Header);
-
-__webpack_require__(12);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Header = function () {
-    function Header() {
-        _classCallCheck(this, Header);
+        __WEBPACK_IMPORTED_MODULE_0_jquery___default()(node).html(
+            __WEBPACK_IMPORTED_MODULE_1_mustache___default.a.render(__WEBPACK_IMPORTED_MODULE_2__Header_html___default.a, {text})
+        );
     }
+}
+/* harmony export (immutable) */ __webpack_exports__["default"] = Header;
 
-    _createClass(Header, [{
-        key: 'render',
-        value: function render(node) {
-            var text = (0, _jquery2.default)(node).text();
-
-            (0, _jquery2.default)(node).html(_mustache2.default.render(_Header2.default, { text: text }));
-        }
-    }]);
-
-    return Header;
-}();
-
-exports.default = Header;
 
 /***/ }),
 /* 2 */,
@@ -11263,8 +11244,8 @@ if(content.locals) module.exports = content.locals;
 if(false) {
 	// When the styles change, update the <style> tags
 	if(!content.locals) {
-		module.hot.accept("!!./../../node_modules/css-loader/index.js!./../../node_modules/sass-loader/lib/loader.js!./Header.scss", function() {
-			var newContent = require("!!./../../node_modules/css-loader/index.js!./../../node_modules/sass-loader/lib/loader.js!./Header.scss");
+		module.hot.accept("!!../../node_modules/css-loader/index.js!../../node_modules/sass-loader/lib/loader.js!./Header.scss", function() {
+			var newContent = require("!!../../node_modules/css-loader/index.js!../../node_modules/sass-loader/lib/loader.js!./Header.scss");
 			if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
 			update(newContent);
 		});
@@ -11275,3 +11256,4 @@ if(false) {
 
 /***/ })
 ]);
+//# sourceMappingURL=0.bundle.js.map
