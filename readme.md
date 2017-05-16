@@ -1,4 +1,4 @@
-####问题1:path.resolve和require.resolve的区别
+#### 问题1:path.resolve和require.resolve的区别
 
 path.resolve: 如果两者都是绝对路径，那么直接返回第二个绝对路径；否则后续参数相对于前面参数叠加，直到取出绝对路径为止
 
@@ -79,7 +79,7 @@ var phantomSource = require('phantomjs-prebuilt').path
 ```
 
 
-####问题2:如何判断用户传入的是绝对路径
+#### 问题2:如何判断用户传入的是绝对路径
 
   这个if只有在用户配置了绝对路径才有用。也就是说如果用户配置了filename为绝对路径那么将filename设置为相对于输出路径的相对路径。
 
@@ -136,7 +136,7 @@ HtmlWebpackPlugin.prototype.getFullTemplatePath = function (template, context) {
 
 这个例子中的template是我们配置的模板html的位置，这个位置是相对于项目根目录的,如果用户本身配置的就是绝对路径那么直接使用用户配置的绝对路径，否则路径是相对于项目根目录的。
 
-####问题3:Path.dirname的特殊形式
+#### 问题3:Path.dirname的特殊形式
 
 ```js
 const path = require("path");
@@ -151,7 +151,7 @@ console.log(path.dirname("index.html"));//结果是"."，和"./index.html"一致
 ```
 
 
-####问题4:遍历得到一个文件夹下所有的文件
+#### 问题4:遍历得到一个文件夹下所有的文件
 
 ```js
 function findMDFile(source){
@@ -170,7 +170,7 @@ function findMDFile(source){
 }
 ```
 
-####问题5：如何判断一个路径是绝对路径或者相对路径
+#### 问题5：如何判断一个路径是绝对路径或者相对路径
 方法二：
 
 ```js
@@ -283,7 +283,6 @@ function stringify(node, depth = 0) {
 }
 
 ```
-
 
 #### 9.为某一个特定的文件添加一个loader
 
